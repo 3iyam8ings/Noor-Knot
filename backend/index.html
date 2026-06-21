@@ -935,7 +935,7 @@ async function sendMsg(){
   scrollChat();
 
   try {
-    const res = await fetch('/noor', {
+    const res = await fetch('https://noor-knot-production.up.railway.app/noor', {
       method  : 'POST',
       headers : { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
