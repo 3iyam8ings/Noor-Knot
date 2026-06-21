@@ -3,7 +3,9 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+
 <title>Noor & Knot — Delhi's Luxury Bridal Beauty Marketplace</title>
+<link rel="icon" href="bride and groom holding hands #wedding #illustration.png">
 <meta name="description" content="AI-powered bridal beauty marketplace for Delhi brides."/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
@@ -512,13 +514,16 @@ function chatHTML(){
     if(m.type==='user') return`<div class="msg-in" style="display:flex;justify-content:flex-end;margin-bottom:18px"><div style="max-width:72%;background:${W};border-radius:18px 18px 4px 18px;padding:14px 18px"><p style="font-size:16px;color:#fff;line-height:1.7">${m.text}</p></div></div>`;
     if(m.type==='noor'){
       const cards=m.salons&&m.salons.length?`<div style="display:flex;gap:12px;margin-top:14px;overflow-x:auto;padding-bottom:4px">${m.salons.map(s=>miniCard(s)).join('')}</div>`:'';
+      const bookingCard='';
+const confirmCard='';
+      
       return`<div class="msg-in" style="display:flex;gap:12px;margin-bottom:18px;align-items:flex-start">
         <div style="width:38px;height:38px;min-width:38px;background:linear-gradient(135deg,${W},#3A0C1A);border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid rgba(212,175,55,.3)">
           <span class="pf" style="color:${G};font-size:15px;font-style:italic">N</span>
         </div>
         <div style="max-width:82%">
           <div class="glass" style="padding:14px 18px;border-radius:4px 18px 18px 18px"><p style="font-size:16px;color:rgba(255,249,246,.82);line-height:1.75;font-style:italic">${m.text}</p></div>
-          ${cards}
+          ${cards}${bookingCard}${confirmCard}
         </div>
       </div>`;
     }
@@ -890,28 +895,43 @@ async function sendMsg(){
   scrollChat();
 
   try {
-    // Call your Gemini backend
     const res = await fetch('http://localhost:3002/noor', {
       method  : 'POST',
       headers : { 'Content-Type': 'application/json' },
-      body    : JSON.stringify({ message: txt })
+      body: JSON.stringify({ 
+        message: txt,
+        history: ST.msgs.filter(m => m.type !== 'typing').map(m => ({
+          role: m.type === 'user' ? 'user' : 'model',
+          text: m.text
+        }))
+      })
     });
     const data = await res.json();
 
-    // Gemini writes the reply, keyword matching picks salon cards
-    const salonMatch = demoReply(txt);
-    ST.msgs.push({ type:'noor', text: data.reply, salons: salonMatch.salons });
+    if(data.action === 'show_booking_card'){
+      const matchedSalon = SALONS.find(s =>
+        s.name.toLowerCase().includes(data.studio.toLowerCase()) ||
+        data.studio.toLowerCase().includes(s.name.toLowerCase())
+      );
+      ST.msgs.push({ type:'noor', text:data.text, salons:matchedSalon?[matchedSalon]:[], showBookingCard:true });
+
+    } else if(data.action === 'confirm_booking'){
+      ST.msgs.push({ type:'noor', text:data.text, salons:[], bookingConfirmed:{ studio:data.studio, trialDate:data.trialDate, weddingDate:data.weddingDate } });
+
+    } else {
+      const mentionedSalons = SALONS.filter(s => data.text && data.text.toLowerCase().includes(s.name.toLowerCase()));
+      ST.msgs.push({ type:'noor', text:data.text||'', salons:mentionedSalons });
+    }
 
   } catch(err) {
-    // Backend offline → fall back to demo responses
     const reply = demoReply(txt);
-    ST.msgs.push({ type:'noor', text: reply.text, salons: reply.salons });
+    ST.msgs.push({ type:'noor', text:reply.text, salons:reply.salons });
   }
-
-  ST.typing = false;
+   ST.typing = false;
   render();
   scrollChat();
 }
+
 function scrollChat(){setTimeout(()=>{const e=document.getElementById('chat-msgs');if(e)e.scrollTop=e.scrollHeight;},80);}
 
 /* ══════════════════════════════════════
