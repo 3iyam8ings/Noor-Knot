@@ -7,7 +7,12 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '.')));
+const { createClient } = require('@supabase/supabase-js');
 
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+);
 const SYSTEM_PROMPT = `You are Noor, a luxury bridal beauty AI consultant for Noor & Knot, Delhi.
 
 Available studios:
@@ -38,7 +43,7 @@ Matching rules:
 
 app.post('/noor', async (req, res) => {
   try {
-    const { message, history = [] } = req.body;
+    const { message, history = [], session_id } = req.body;
 
     const historyContents = history.map(m => ({
       role: m.role,
@@ -86,11 +91,131 @@ app.post('/noor', async (req, res) => {
 
     if (!parsed.action) parsed.action = 'message';
 
+    // Save the exchange to chat_messages, if a session_id was provided
+    if (session_id) {
+      const { error: saveError } = await supabase.from('chat_messages').insert([
+        { session_id, role: 'user', content: message },
+        { session_id, role: 'assistant', content: parsed.text || '' }
+      ]);
+      if (saveError) console.error('Failed to save chat_messages:', saveError);
+    }
+
     res.json(parsed);
 
   } catch (err) {
     console.error(err);
     res.status(500).json({ action: 'message', text: 'Noor is unavailable right now.' });
+  }
+});
+
+// List past conversations for the sidebar — one entry per session_id,
+// using the first user message as the title and the latest timestamp for sorting
+app.get('/conversations', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('session_id, role, content, created_at')
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    const sessions = {};
+    for (const row of data) {
+      if (!sessions[row.session_id]) {
+        sessions[row.session_id] = {
+          session_id: row.session_id,
+          title: null,
+          last_message_at: row.created_at
+        };
+      }
+      if (!sessions[row.session_id].title && row.role === 'user') {
+        sessions[row.session_id].title = row.content.slice(0, 60);
+      }
+      sessions[row.session_id].last_message_at = row.created_at;
+    }
+
+    const list = Object.values(sessions)
+      .filter(s => s.title)
+      .sort((a, b) => new Date(b.last_message_at) - new Date(a.last_message_at));
+
+    res.json(list);
+  } catch (err) {
+    console.error('CONVERSATIONS ERROR:', err);
+    res.status(500).json({ error: err.message || err });
+  }
+});
+
+// Load all messages for one conversation, to restore it in the chat window
+app.get('/conversations/:session_id', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('role, content, created_at')
+      .eq('session_id', req.params.session_id)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (err) {
+    console.error('CONVERSATION LOAD ERROR:', err);
+    res.status(500).json({ error: err.message || err });
+  }
+});
+
+app.get('/salons', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('salons')
+      .select('*');
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (err) {
+  console.error('SALONS ERROR:', err);
+
+  res.status(500).json({
+    error: err.message || err
+  });
+}
+});
+
+app.post('/bookings', async (req, res) => {
+  try {
+    const {
+      salon_id,
+      salon_name,
+      trial_date,
+      wedding_date,
+      user_message
+    } = req.body;
+
+    const { data, error } = await supabase
+      .from('bookings')
+      .insert([
+        {
+          salon_id,
+          salon_name,
+          trial_date,
+          wedding_date,
+          user_message
+        }
+      ])
+      .select();
+
+    if (error) throw error;
+
+    res.json({
+      success: true,
+      booking: data[0]
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      success: false,
+      error: 'Booking failed'
+    });
   }
 });
 
