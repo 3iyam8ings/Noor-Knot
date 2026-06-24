@@ -996,7 +996,7 @@ function newChat(){
 
 async function loadConversationsList(){
   try{
-    const res = await fetch('/conversations');
+    const res = await fetch('https://noor-knot-production.up.railway.app/conversations');
     if(!res.ok) return;
     const data = await res.json();
     ST.conversations = data;
@@ -1008,7 +1008,7 @@ async function loadConversationsList(){
 
 async function loadConversation(sessionId){
   try{
-    const res = await fetch('/conversations/' + encodeURIComponent(sessionId));
+    const res = await fetch('https://noor-knot-production.up.railway.app/conversations/'+ encodeURIComponent(sessionId));
     if(!res.ok) return;
     const data = await res.json();
 
@@ -1069,7 +1069,7 @@ render();
    the hardcoded list (and demoReply fallback) working if the backend is down. */
 async function loadLiveSalons(){
   try{
-    const res = await fetch('/salons');
+    const res = await fetch('https://noor-knot-production.up.railway.app/salons');
     if(!res.ok) return;
     const data = await res.json();
     if(!Array.isArray(data) || data.length===0) return;
