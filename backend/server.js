@@ -56,31 +56,29 @@ app.post('/noor', async (req, res) => {
     ];
 
     const response = await fetch(
-      
-       `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${process.env.GEMINI_KEY}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents,
-          generationConfig: {
-            responseMimeType: "application/json"
-          },
-          systemInstruction: {
-            parts: [{ text: SYSTEM_PROMPT }]
-          }
-        })
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      console.error('Gemini error:', data);
-      return res.status(500).json({ action: 'message', text: 'Noor is unavailable right now.' });
-    }
-
-    const raw = data.candidates[0].content.parts[0].text;
+  'https://api.groq.com/openai/v1/chat/completions',
+  {
+    method: 'POST',
+    headers: { 
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.GROQ_KEY}`
+    },
+    body: JSON.stringify({
+      model: 'llama-3.1-8b-instant',
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        ...history.map(m => ({ 
+          role: m.role === 'model' ? 'assistant' : m.role, 
+          content: m.text 
+        })),
+        { role: 'user', content: message }
+      ],
+      response_format: { type: 'json_object' }
+    })
+  }
+);
+const data = await response.json();
+const raw = data.choices[0].message.content;
 
     let parsed;
     try {
