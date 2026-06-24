@@ -5,7 +5,7 @@ Live Demo:
 [Noor & Knot Live Website](https://noor-knot-eight.vercel.app/)
 
 GitHub Repository:
-[NoorKnot Repository](https://github.com/3iyam8ings/Noor-Knot/)
+[NoorKnot Repository](https://github.com/noor-knot/Noor-Knot)
 
 📌 Problem Statement
 
